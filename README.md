@@ -51,7 +51,6 @@
     - Hwid
     - PC Specs
     - Screenshot
-    - WebcamShot
 
 - General Functions
     - Checks if being run in a virustotal sandbox/virtual machine
@@ -83,7 +82,7 @@ Once you've downloaded the files extract the folder so it's no longer a .zip fil
 ### 3. Open The setup.bat File:
 
 ```
-You dont need to install any modules opening setup.bat will install them for you. Then you need to open builder.pyw which will
+You dont need to install any modules opening setup.bat will install them for you. Then you need to open run.bat as administrator which will
 open the gui.
 ```
 ### 4. Create A Webhook:
@@ -118,7 +117,3 @@ this to your victims.😈
     <img style="border-radius: 15px; display: block; margin-left: auto; margin-right: auto; margin-bottom:20px;" width="70%" src="https://i.imgur.com/4DNCiAJ.png"></img>
     <img style="border-radius: 15px; display: block; margin-left: auto; margin-right: auto; margin-bottom:20px;" width="70%" src="https://i.imgur.com/s5f4HVs.png"></img>
 </div>
-
-### Star Graph
-
-[![Star History Chart](https://api.star-history.com/svg?repos=Smug246/Luna-Grabber&type=Date)]

